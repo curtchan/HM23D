@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>three.js webgl - map controls</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+    <style>
+        body {
+            color: #000;
+            font-family:Monospace;
+            font-size:13px;
+            text-align:center;
+            font-weight: bold;
+            background-color: #fff;
+            margin: 0px;
+            overflow: hidden;
+        }
+        
+        #heightmap-img {
+            display: none;
+        }
+    </style>
+</head>
+
+<body id="body">
+<img src="img/poland/hel%20Height%20Map.png" id="heightmap-img" alt>
+<script
+        src="http://code.jquery.com/jquery-3.3.1.min.js"
+        integrity="sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8="
+        crossorigin="anonymous"></script>
+<script src="js/three.min.js"></script>
+<script src="js/controls/OrbitControls.js"></script>
+<script src="js/WebGL.js"></script>
+
+<script src='js/libs/dat.gui.min.js'></script>
+
+<script>
+    $(document).ready(function(){
+        var scene = new THREE.Scene();
+        var camera = new THREE.PerspectiveCamera(75,window.innerWidth/window.innerHeight);
+        var renderer = new THREE.WebGLRenderer({antialias: true});
+        renderer.setSize(window.innerWidth,window.innerHeight);
+        $('body').append(renderer.domElement);
+
+        var geometry = new THREE.BoxGeometry(1,1,1);
+        // var material = new THREE.MeshBasicMaterial({
+        //     color: '#3e3',
+        //     wireframe: true
+        // });
+
+
+        var loader = new THREE.TextureLoader();
+        var material = new THREE.MeshLambertMaterial({
+            map: loader.load('img/poland/hel.png')
+        });
+
+        size = 1;
+        mapres = 1081;
+
+        prepareImage();
+        let terrain_geometry = makeTile(size, mapres - 1);
+        let terrain = new THREE.Mesh(terrain_geometry, material);
+        terrain.position.x = -1 * size * mapres / 2;
+        terrain.position.z = -1 * size * mapres / 2;
+        terrain.position.y = -5;
+        terrain.updateMatrixWorld(true);
+        scene.add(terrain);
+
+        var sphere = new THREE.SphereBufferGeometry( 5, 16, 8 );
+        light1 = new THREE.PointLight( 0xffffff, 1, 0 );
+        light1.position.set(0, 1000, 0);
+        light1.add( new THREE.Mesh( sphere, new THREE.MeshBasicMaterial( { color: 0xffffff } ) ) );
+        scene.add( light1 );
+
+        var controls = new THREE.OrbitControls( camera );
+
+        //controls.update() must be called after any manual changes to the camera's transform
+        camera.position.set( 0, 20, 30 );
+        controls.update();
+
+        renderer.render(scene,camera);
+        var animate = function(){
+            renderer.render(scene,camera);
+            requestAnimationFrame(animate);
+        }
+        animate();
+
+        function makeTile(size, res) {
+            geometry = new THREE.Geometry();
+            for (var i = 0; i <= res; i++) {
+                for (var j = 0; j <= res; j++) {
+                    var z = j * size;
+                    var x = i * size;
+                    var y = getImagePixelIntensity(j * mapres + i);
+                    var position = new THREE.Vector3(x, y * 0.25, z);
+                    var addFace = (i > 0) && (j > 0);
+                    makeQuad(geometry, position, addFace, res + 1);
+                }
+            }
+            geometry.computeFaceNormals();
+            geometry.normalsNeedUpdate = true;
+
+            return geometry;
+        };
+
+        function makeQuad(geometry, position, addFace, verts) {
+            geometry.vertices.push(position);
+
+            if (addFace) {
+                var index1 = geometry.vertices.length - 1;
+                var index2 = index1 - 1;
+                var index3 = index1 - verts;
+                var index4 = index1 - verts - 1;
+
+                geometry.faces.push(new THREE.Face3(index2, index3, index1));
+                geometry.faces.push(new THREE.Face3(index2, index4, index3));
+            }
+        };
+
+        function prepareImage() {
+            var img = document.getElementById('heightmap-img');
+            var canvas = document.createElement('canvas');
+            canvas.width = img.width;
+            canvas.height = img.height;
+            var ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0);
+            var imgData = ctx.getImageData(0, 0, mapres, mapres).data;
+            for(var i = 0; i < imgData.length; i = i + 4) {
+                imgPixelsData.push([
+                    imgData[i],
+                    imgData[i + 1],
+                    imgData[i + 2],
+                    imgData[i + 3]
+                ]);
+            }
+
+            $("#body").append(canvas);
+        }
+
+        function getImagePixelIntensity(pixel) {
+            // console.log(pixel);
+            pixelMul = (imgPixelsData[pixel][0] + imgPixelsData[pixel][1] + imgPixelsData[pixel][2]) / 3;
+            // console.log(imgPixelsData[pixel]);
+            // if(pixel%mapres != 0) {
+            //     return 0;
+            // }
+            return imgPixelsData[pixel][0];
+        }
+    });
+    imgPixelsData = [];
+
+</script>
+
+</body>
+</html>
